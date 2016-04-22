@@ -4,6 +4,51 @@ var math = require('../../../index');
 var Unit = math.type.Unit;
 
 describe('Unit', function() {
+  describe('formula', function() {
+
+    it('should return the correct formula for the unit conversion', function () {
+      var formula1 = math.unit('35 ft').to('m').formula();
+      var formula2 = math.unit('35 m').to('ft').formula();
+      var formula3 = math.unit('35 degC').to('degF').formula();
+      var formula4 = math.unit('35 degF').to('degC').formula();
+      var formula5 = math.unit('5.08 cm').to('inch').formula();
+      var formula6 = math.unit('101325 N/m^2').to('lbf/in^2').formula();
+      var formula7 = math.unit('35 lb/ft^3').to('kg/m^3').formula();
+      var formula8 = math.unit('35 kg/m^3').to('lb/ft^3').formula();
+      var formula9 = math.unit('3 m^2*kg*s^-2').to('dyn*m').formula();
+      var formula10 = math.unit('3 kg*m^2*s^-2').to('dyn*m').formula();
+
+      assert.equal(formula1.value, 10.668000000000001);
+      assert.equal(math.eval(formula1.formula.replace('x', '35')), formula1.value);
+
+      assert.equal(formula2.value, 114.82939632545931);
+      assert.equal(math.eval(formula2.formula.replace('x', '35')), formula2.value);
+
+      assert.equal(formula3.value, 94.99999999999994);
+      assert.equal(math.eval(formula3.formula.replace('x', '35')), formula3.value);
+
+      assert.equal(formula4.value, 1.6666666666666856);
+      assert.equal(math.eval(formula4.formula.replace('x', '35')), formula4.value);
+
+      assert.equal(formula5.value, 2.0000000000000004);
+      assert.equal(math.eval(formula5.formula.replace('x', '5.08')), formula5.value);
+
+      assert.equal(formula6.value, 14.69594877551345);
+      assert.equal(math.eval(formula6.formula.replace('x', '101325')), formula6.value);
+
+      assert.equal(formula7.value, 560.6462180886049);
+      assert.equal(math.eval(formula7.formula.replace('x', '35')), formula7.value);
+
+      assert.equal(formula8.value, 2.1849786201650616);
+      assert.equal(math.eval(formula8.formula.replace('x', '35')), formula8.value);
+
+      assert.equal(formula9.value, 300000);
+      assert.equal(math.eval(formula9.formula.replace('x', '3')), formula9.value);
+
+      assert.equal(formula10.value, 300000);
+      assert.equal(math.eval(formula10.formula.replace('x', '3')), formula10.value);
+    });
+  });
 
   describe('constructor', function() {
 
@@ -565,7 +610,6 @@ describe('Unit', function() {
   });
 
   describe('json', function () {
-
     it('toJSON', function () {
       assert.deepEqual(new Unit(5, 'cm').toJSON(),
           {'mathjs': 'Unit', value: 5, unit: 'cm', fixPrefix: false});
