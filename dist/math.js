@@ -7,7 +7,7 @@
  * mathematical functions, and a flexible expression parser.
  *
  * @version 3.2.0
- * @date    2016-04-16
+ * @date    2016-04-22
  *
  * @license
  * Copyright (C) 2013-2016 Jos de Jong <wjosdejong@gmail.com>
@@ -18173,6 +18173,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    this.value = (value != undefined) ? this._normalize(value) : null;
+	    formula = '';
 
 	    this.fixPrefix = false; // if true, function format will not search for the
 	                            // best prefix but leave it as initially provided.
@@ -18192,6 +18193,9 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	  // private variables and functions for the Unit parser
 	  var text, index, c;
+	  var formula = '',
+	      isValueUsed = false,
+	      unitParts = {};
 
 	  function skipWhitespace() {
 	    while (c == ' ' || c == '\t') {
@@ -18557,28 +18561,42 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * @private
 	   */
 	  Unit.prototype._normalize = function (value) {
-	    var unitValue, unitOffset, unitPower, unitPrefixValue;
-	    var convert;
+	    var unitValue, unitOffset, unitPower, unitPrefixValue, convert;
+
+	    var x = isValueUsed ? '1' : 'x';
+	    if (!isValueUsed) {
+	      unitParts = {};
+	    }
+	    isValueUsed = true;
 
 	    if (value == null || this.units.length === 0) {
 	      return value;
 	    }
 	    else if (this._isDerived()) {
+	      
 	      // This is a derived unit, so do not apply offsets.
 	      // For example, with J kg^-1 degC^-1 you would NOT want to apply the offset.
 	      var res = value;
+
 	      convert = Unit._getNumberConverter(getTypeOf(value)); // convert to Fraction or BigNumber if needed
 
 	      for(var i=0; i < this.units.length; i++) {
 	        unitValue       = convert(this.units[i].unit.value);
 	        unitPrefixValue = convert(this.units[i].prefix.value);
 	        unitPower       = convert(this.units[i].power);
+
+	        if (this.units[i].unit.name && !unitParts[this.units[i].unit.name]) {
+	          unitParts[this.units[i].unit.name] = x + '*(' + unitValue + '*' + unitPrefixValue + ')^' + unitPower;
+	        }
+
 	        res = multiply(res, pow(multiply(unitValue, unitPrefixValue), unitPower));
+	        x = isValueUsed ? '1' : 'x';
 	      }
 
 	      return res;
 	    }
 	    else {
+
 	      // This is a single unit of power 1, like kg or degC
 	      convert = Unit._getNumberConverter(getTypeOf(value)); // convert to Fraction or BigNumber if needed
 
@@ -18586,8 +18604,24 @@ return /******/ (function(modules) { // webpackBootstrap
 	      unitOffset      = convert(this.units[0].unit.offset);
 	      unitPrefixValue = convert(this.units[0].prefix.value);
 
-	      return multiply(add(value, unitOffset), multiply(unitValue, unitPrefixValue));
+	      var result = multiply(add(value, unitOffset), multiply(unitValue, unitPrefixValue));
+
+	      if (this.units[0].unit.name && !unitParts[this.units[0].unit.name]) {
+	        unitParts[this.units[0].unit.name] = '(' + x + '+' + unitOffset + ')*' + unitValue + '*' + unitPrefixValue;
+	      }
+
+	      return result;
 	    }
+	  };
+
+	  /**
+	   * Return the current formula.
+	   * @returns {string}
+	   */
+	  Unit.prototype.frml = function() {
+	    isValueUsed = false;
+	    unitParts = {};
+	    return formula;
 	  };
 
 	  /**
@@ -18599,8 +18633,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	   * @private
 	   */
 	  Unit.prototype._denormalize = function (value, prefixValue) {
-	    var unitValue, unitOffset, unitPower, unitPrefixValue;
-	    var convert;
+	    var unitValue, unitOffset, unitPower, unitPrefixValue, convert;
+	    formula = '';
 
 	    if (value == null || this.units.length === 0) {
 	      return value;
@@ -18609,15 +18643,27 @@ return /******/ (function(modules) { // webpackBootstrap
 	      // This is a derived unit, so do not apply offsets.
 	      // For example, with J kg^-1 degC^-1 you would NOT want to apply the offset.
 	      // Also, prefixValue is ignored--but we will still use the prefix value stored in each unit, since kg is usually preferable to g unless the user decides otherwise.
-	      var res = value;
+	      var res = value,
+	        newFormula = '';
 	      convert = Unit._getNumberConverter(getTypeOf(value)); // convert to Fraction or BigNumber if needed
 
 	      for (var i = 0; i < this.units.length; i++) {
 	        unitValue       = convert(this.units[i].unit.value);
 	        unitPrefixValue = convert(this.units[i].prefix.value);
 	        unitPower       = convert(this.units[i].power);
+
+	        newFormula += '/(' + unitValue + '*' + unitPrefixValue + ')^' + unitPower;
 	        res = divide(res, pow(multiply(unitValue, unitPrefixValue), unitPower));
 	      }
+
+	      for (var key in unitParts) {
+	        formula += '(' + unitParts[key] + ')*';
+	      }
+
+	      formula = formula.slice(0, -1);
+	      formula += newFormula;
+
+	      isValueUsed = false;
 
 	      return res;
 	    }
@@ -18629,12 +18675,27 @@ return /******/ (function(modules) { // webpackBootstrap
 	      unitPrefixValue = convert(this.units[0].prefix.value);
 	      unitOffset      = convert(this.units[0].unit.offset);
 
+	      var result, newFormula;
+
 	      if (prefixValue == undefined) {
-	        return subtract(divide(divide(value, unitValue), unitPrefixValue), unitOffset);
+	        newFormula = '/' + unitValue + '/' + unitPrefixValue + '-' + unitOffset;
+	        result = subtract(divide(divide(value, unitValue), unitPrefixValue), unitOffset);
 	      }
 	      else {
-	        return subtract(divide(divide(value, unitValue), prefixValue), unitOffset);
+	        newFormula = '/' + unitValue + '/' + prefixValue + '-' + unitOffset;
+	        result = subtract(divide(divide(value, unitValue), prefixValue), unitOffset);
 	      }
+
+	      for (var key in unitParts) {
+	        formula += '(' + unitParts[key] + ')*';
+	      }
+
+	      formula = formula.slice(0, -1);
+	      formula += newFormula;
+
+	      isValueUsed = false;
+
+	      return result;
 	    }
 	  };
 
@@ -18953,6 +19014,20 @@ return /******/ (function(modules) { // webpackBootstrap
 	    };
 	  };
 
+		/**
+	     *
+	     * @returns {{mathjs: string, value: number, unit: string, formula: string, fixPrefix: *}}
+	     */
+	  Unit.prototype.formula = function () {
+	    return {
+	      mathjs: 'Unit',
+	      value: this._denormalize(this.value),
+	      unit: this.formatUnits(),
+	      formula: this.frml(),
+	      fixPrefix: this.fixPrefix
+	    };
+	  };
+
 	  /**
 	   * Instantiate a Unit from a JSON object
 	   * @memberof Unit
@@ -19140,7 +19215,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	        }
 	      }
 	    }
-
 
 	    // Now apply the best prefix
 	    // Units must have only one unit and not have the fixPrefix flag set
