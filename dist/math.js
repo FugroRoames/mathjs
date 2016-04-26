@@ -7,7 +7,7 @@
  * mathematical functions, and a flexible expression parser.
  *
  * @version 3.2.0
- * @date    2016-04-22
+ * @date    2016-04-26
  *
  * @license
  * Copyright (C) 2013-2016 Jos de Jong <wjosdejong@gmail.com>
@@ -19020,11 +19020,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	     */
 	  Unit.prototype.formula = function () {
 	    return {
-	      mathjs: 'Unit',
 	      value: this._denormalize(this.value),
-	      unit: this.formatUnits(),
-	      formula: this.frml(),
-	      fixPrefix: this.fixPrefix
+	      formula: this.frml()
 	    };
 	  };
 
